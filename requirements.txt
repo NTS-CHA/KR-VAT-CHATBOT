@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+requests
+openai
+python-dotenv
+beautifulsoup4
+pdfkit
+matplotlib
+wordcloud
+pandas
+notebook

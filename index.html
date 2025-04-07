@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VAT GPT Chatbot</title>
+  <script defer src="/static/app.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center py-10 px-4">
+  <div class="w-full max-w-2xl bg-white p-6 rounded-xl shadow-lg">
+    <div class="flex items-center space-x-2 mb-4">
+      <img src="https://flagcdn.com/w40/kr.png" class="inline-block w-6">
+      <h1 id="title" class="text-2xl font-bold">대한민국 부가가치세 챗봇</h1>
+    </div>
+    <div class="flex space-x-2 mb-4">
+      <button id="lang-ko" onclick="setLang('ko')" class="bg-blue-600 text-white px-3 py-1 rounded">
+        <img src="https://flagcdn.com/w40/kr.png" class="inline-block w-5 mr-1">한국어 (Korean)
+      </button>
+      <button id="lang-en" onclick="setLang('en')" class="bg-gray-300 px-3 py-1 rounded">
+        <img src="https://flagcdn.com/w40/gb.png" class="inline-block w-5 mr-1">영어 (English)
+      </button>
+    </div>
+    <textarea id="question" rows="4" class="w-full p-3 border border-gray-300 rounded-lg mb-4" placeholder="질문을 입력하세요..."></textarea>
+    <button id="ask-btn" onclick="ask()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">질문하기</button>
+    <div id="loading-msg" class="mt-4 text-gray-500 hidden">⏳ 검색 중입니다...</div>
+    <div id="answer" class="mt-2 whitespace-pre-wrap bg-gray-50 p-4 border rounded-lg text-gray-800 min-h-[100px]"></div>
+    <div id="references" class="mt-2 text-sm text-gray-700"></div>
+    <div id="ref-detail" class="mt-4 text-sm space-y-2"></div>
+  </div>
+</body>
+</html>
