@@ -1,42 +1,75 @@
-# VAT GPT Chatbot
+# 💼 VAT GPT Chatbot
 
-한국 세법 기반의 부가가치세 챗봇입니다. FastAPI + Tailwind + OpenAI 기반.
+An AI-powered chatbot for analyzing Korean VAT law.  
+Uses GPT-4 to provide legally grounded answers with references to statutes and precedents.
 
-## 🚀 실행 방법
+---
 
-```bash
-# 가상환경 생성 (선택)
-python -m venv venv
-source venv/bin/activate  # or venv\Scripts\activate on Windows
+## 🚀 Deployment Environment
 
-# 패키지 설치
-pip install -r requirements.txt
+- ✅ FastAPI (Python 3.10+)
+- ✅ GPT-4 API + GPT-3.5 API usage
+- ✅ Tailwind CSS + JS frontend
+- ✅ Replit or Netlify for deployment
 
-# .env 파일 생성
-cp .env.example .env  # 또는 직접 작성
+---
 
-# 서버 실행
-uvicorn main:app --reload
+## 🔁 Deploy
+
+### ▶️ Run on Replit
+
+[![Run on Replit](https://replit.com/badge/github/openai/openai-python)](https://replit.com/new)
+
+> No `.replit` or `replit.nix` needed – Replit detects Python projects automatically.
+
+---
+
+### 🌍 Deploy via Netlify
+
+1. Download this repository and unzip it.
+2. Go to [Netlify Drop](https://app.netlify.com/drop)
+3. Upload your static files (`index.html`, `static/app.js`, etc.)
+
+> If using API server separately (e.g. from Replit), configure CORS or proxy.
+
+---
+
+## 📦 Run Locally (or on Replit)
+
+1. Create a `.env` file and add:
+   ```env
+   OPENAI_API_KEY=your_key_here
+   LAW_OC_ID=your_key_here
+   ```
+
+2. Run the server:
+   ```bash
+   python3 main.py
+   ```
+
+3. Open in browser:
+   ```bash
+   http://localhost:8000
+   ```
+
+---
+
+## 📁 Project Structure
+
+```
+├── main.py             # FastAPI backend
+├── static/
+│   ├── app.js          # Frontend logic
+│   └── report.png      # Generated usage report
+├── logs/
+│   └── gpt_calls.csv   # GPT call logs
+├── .gitignore
+└── README.md
 ```
 
-접속 URL: http://127.0.0.1:8000
+---
 
-## 🔐 환경변수 설정 (.env)
+## 🧠 Author / License
 
-```
-OPENAI_API_KEY=sk-xxx...
-LAW_OC_ID=elapse64
-```
-
-## 📁 폴더 구조
-
-- main.py: FastAPI 백엔드
-- static/: HTML + JS UI
-- requirements.txt: 필요한 패키지 목록
-
-## ✅ 기능
-
-- VAT 법령/시행령/판례 기반 답변
-- 한/영 토글 및 신뢰도 표시
-- 인용 조문 요약 + 사용 예시 출력
-
+MIT License  
+Made by QUIereN DUraznos with Doldori and peaches
