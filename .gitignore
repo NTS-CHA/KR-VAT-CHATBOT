@@ -1,4 +1,39 @@
-venv/
-.env
+# Python
 __pycache__/
-.ipynb_checkpoints/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.log
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# Env
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Replit
+.replit
+.replit-db
+
+# Logs & runtime
+logs/
+*.sqlite3
+*.db
+*.pid
+*.seed
+*.bak
+
+# Static build output
+/static/report.png
+/static/*.svg
+/static/*.pdf
+
+# Node (if used)
+node_modules/
