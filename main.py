@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-# from openai import OpenAI
+from openai import OpenAI
 import openai
 from typing import Literal, Optional
 import os, time, json, csv, re, inspect, unicodedata
@@ -37,19 +37,11 @@ GPT_MODEL_LIGHT = "gpt-3.5-turbo"
 load_dotenv()
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
-# key = os.getenv("OPENAI_API_KEY")
-# if not key:
-#     raise RuntimeError("❌ OPENAI_API_KEY 환경변수가 설정되지 않았습니다.")
-# client = OpenAI(api_key=key)
-
 key = os.getenv("OPENAI_API_KEY")
 if not key:
     raise RuntimeError("❌ OPENAI_API_KEY 환경변수가 설정되지 않았습니다.")
+client = openai.OpenAI(api_key=key)
 
-openai.api_key = key
-
-# import openai
-# openai.api_key = os.getenv("OPENAI_API_KEY")
 
 _translation_cache = {}
 log_file = "logs/gpt_calls.csv"
@@ -199,7 +191,7 @@ def gpt_call(model, messages, temperature=0.2, timeout=30):
         encoding = tiktoken.encoding_for_model(model)
         prompt_tokens = sum(len(encoding.encode(msg.get("content", ""))) for msg in messages)
 
-        completion = openai.ChatCompletion.create(
+        completion = client.chat.completions.create(
             model=model,
             messages=messages,
             temperature=temperature,
