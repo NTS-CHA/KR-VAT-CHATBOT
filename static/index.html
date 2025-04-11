@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VAT GPT Chatbot</title>
-  <script defer src="/static/app.js"></script>
+  <script defer src="/static/app.js?v=3"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
     .active-filter {
@@ -47,11 +47,13 @@
           <ul id="references" class="mt-2 ml-4 list-disc text-sm text-blue-700"></ul>
         </div>
         <div class="mt-4 flex gap-3 text-sm">
-          <button id="filter-all" class="filter-btn px-2 py-1 border rounded bg-blue-100 hover:bg-blue-200">전체</button>
+          <!-- <button id="filter-all" class="filter-btn px-2 py-1 border rounded bg-blue-100 hover:bg-blue-200">전체</button> -->
           <button id="filter-open" class="filter-btn px-2 py-1 border rounded bg-green-100 hover:bg-green-200">펼침</button>
           <button id="filter-closed" class="filter-btn px-2 py-1 border rounded bg-red-100 hover:bg-red-200">접힘</button>
-          <button id="sort-alpha" class="filter-btn bg-gray-200 px-2 py-1 rounded">가나다순 정렬</button>
+          <button id="sort-asc" class="filter-btn bg-blue-200 px-2 py-1 rounded">오름차순 정렬</button>
+          <button id="sort-desc" class="filter-btn bg-gray-200 px-2 py-1 rounded">내림차순 정렬</button> <!-- ✅ 추가 -->
         </div>
+        
         <button id="toggle-cards" class="mt-4 text-sm text-blue-600 hover:underline">📘 카드 전체 접기 ▾</button>
         <div id="ref-detail" class="mt-4 text-sm space-y-2"></div>
         <div id="law-tree" class="mt-4 text-sm"></div>
@@ -59,15 +61,15 @@
         <div id="law-text" class="mt-4 text-sm bg-gray-50 border p-3 rounded whitespace-pre-wrap text-gray-800"></div>
         <div class="mt-6">
           <h2 class="font-semibold text-sm text-gray-700">📊 GPT 사용 리포트</h2>
-          <img src="/static/report.png" class="mt-2 rounded shadow border" />
+          <img id="gpt-report-img" src="/static/report.png" class="mt-2 rounded shadow border transition-opacity duration-300" style="opacity: 1;" />
+          
         </div>
       </div>
     </div>
-
-    <!-- 🆕 오른쪽 패널: 최근 질문 -->
     <aside id="recent-questions" class="w-80 text-sm text-gray-700 bg-white p-4 rounded-xl shadow h-fit">
       <!-- JS로 채워짐 -->
     </aside>
   </div>
+  <!-- <div id="recent-questions" class="mt-6 text-sm"></div> -->
 </body>
 </html>

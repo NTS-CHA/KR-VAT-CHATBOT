@@ -5,13 +5,65 @@ let translatedNames = {};  // ✅ 전역 선언
 
 function setLang(l) {
   lang = l;
+
+  const langMap = {
+    ko: {
+      title: "대한민국 부가가치세 챗봇",
+      ask: "질문하기",
+      placeholder: "질문을 입력하세요...",
+      toggleReferences: "📎 인용된 법령/판례 보기 ▾",
+      toggleCards: "📘 카드 전체 접기 ▾",
+      toggleLaw: "📖 법령 원문 접기 ▾",
+      filterExpand: "펼침",
+      filterCollapse: "접힘",
+      filterAZ: "오름차순 정렬",
+      filterZA: "내림차순 정렬",
+    },
+    en: {
+      title: "Korean VAT Chatbot",
+      ask: "Ask",
+      placeholder: "Enter your question...",
+      toggleReferences: "📎 Show referenced laws ▾",
+      toggleCards: "📘 Hide Cards ▾",
+      toggleLaw: "📖 Hide Law Text ▾",
+      filterExpand: "Unfold",
+      filterCollapse: "Fold",
+      filterAZ: "Sort A-Z",
+      filterZA: "Sort Z-A",
+    }
+  };
+
+  const t = langMap[l];
+
+  // 🔄 기본 텍스트 교체
+  document.getElementById("title").textContent = t.title;
+  document.getElementById("ask-btn").textContent = t.ask;
+  document.getElementById("question").placeholder = t.placeholder;
+
+  // 🔄 버튼 동기화 (존재할 경우에만)
+  const btnMap = {
+    "toggle-references": t.toggleReferences,
+    "toggle-cards": t.toggleCards,
+    "toggle-lawtext": t.toggleLaw,
+    "filter-open": t.filterExpand,
+    "filter-closed": t.filterCollapse,
+    "sort-asc": t.filterAZ,
+    "sort-desc": t.filterZA,
+  };
+
+  Object.entries(btnMap).forEach(([id, text]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  });
+
+  // ✅ 버튼 클래스도 동기화
   document.getElementById("lang-ko").className = (l === "ko" ? "bg-blue-600 text-white" : "bg-gray-300 text-black") + " px-3 py-1 rounded";
   document.getElementById("lang-en").className = (l === "en" ? "bg-blue-600 text-white" : "bg-gray-300 text-black") + " px-3 py-1 rounded";
-  document.getElementById("title").innerText = l === "en" ? "Korean VAT Chatbot" : "대한민국 부가가치세 챗봇";
-  document.getElementById("ask-btn").innerText = l === "en" ? "Ask" : "질문하기";
-  document.getElementById("question").placeholder = l === "en" ? "Enter your question..." : "질문을 입력하세요...";
+
+  // 🔁 최근 질문 동기화
   renderRecentQuestions();
 }
+
 
 function highlightLawText(text) {
   const keywords = ["과세", "면세", "영세율", "추징", "신고", "공제", "세액", "공급", "과소신고"];
@@ -24,13 +76,13 @@ function highlightLawText(text) {
 
 function showError(message) {
   const errorBox = document.getElementById("error-msg");
-  errorBox.innerText = message;
+  errorBox.textContent = message;
   errorBox.classList.remove("hidden");
 }
 function hideError() {
   const errorBox = document.getElementById("error-msg");
   errorBox.classList.add("hidden");
-  errorBox.innerText = "";
+  errorBox.textContent = "";
 }
 
 function renderLawTree(refs) {
@@ -64,52 +116,54 @@ function renderLawTree(refs) {
 }
 
 function bindFilterAndSortEvents() {
-  const all = document.getElementById("filter-all");
-  const open = document.getElementById("filter-open");
-  const closed = document.getElementById("filter-closed");
-  const sort = document.getElementById("sort-alpha");
+  const buttonIds = ["sort-asc", "sort-desc", "filter-open", "filter-closed"];
 
-  if (all) all.addEventListener("click", () => {
-    document.querySelectorAll(".law-card").forEach(card => card.classList.remove("hidden"));
-    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active-filter"));
-    all.classList.add("active-filter");
-  });
+  buttonIds.forEach(id => {
+    const oldBtn = document.getElementById(id);
+    if (!oldBtn) return;
+    const newBtn = oldBtn.cloneNode(true);
+    oldBtn.replaceWith(newBtn);
 
-  if (open) open.addEventListener("click", () => {
-    document.querySelectorAll(".law-card").forEach(card => {
-      const content = card.querySelector(".law-content");
-      if (content) card.classList.toggle("hidden", content.classList.contains("hidden"));
+    newBtn.addEventListener("click", () => {
+      const container = document.getElementById("ref-detail");
+      const cards = Array.from(container.querySelectorAll(".law-card"));
+
+      // 모두 초기화
+      document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active-filter"));
+      newBtn.classList.add("active-filter");
+
+      if (id === "sort-asc") {
+        cards.sort((a, b) => a.textContent.localeCompare(b.textContent));
+        container.innerHTML = "";
+        cards.forEach(card => container.appendChild(card));
+      }
+
+      if (id === "sort-desc") {
+        cards.sort((a, b) => b.textContent.localeCompare(a.textContent));
+        container.innerHTML = "";
+        cards.forEach(card => container.appendChild(card));
+      }
+
+      if (id === "filter-open") {
+        cards.forEach(card => {
+          const content = card.querySelector(".law-content");
+          if (content) card.classList.toggle("hidden", content.classList.contains("hidden"));
+        });
+      }
+
+      if (id === "filter-closed") {
+        cards.forEach(card => {
+          const content = card.querySelector(".law-content");
+          if (content) card.classList.toggle("hidden", !content.classList.contains("hidden"));
+        });
+      }
     });
-    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active-filter"));
-    open.classList.add("active-filter");
-  });
-
-  if (closed) closed.addEventListener("click", () => {
-    document.querySelectorAll(".law-card").forEach(card => {
-      const content = card.querySelector(".law-content");
-      if (content) card.classList.toggle("hidden", !content.classList.contains("hidden"));
-    });
-    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active-filter"));
-    closed.classList.add("active-filter");
-  });
-
-  if (sort) sort.addEventListener("click", () => {
-    const container = document.getElementById("ref-detail");
-    const cards = Array.from(container.querySelectorAll(".law-card"));
-    cards.sort((a, b) => {
-      const ta = a.innerText;
-      const tb = b.innerText;
-      return ta.localeCompare(tb);
-    });
-    container.innerHTML = "";
-    cards.forEach(card => container.appendChild(card));
-    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active-filter"));
-    sort.classList.add("active-filter");
   });
 }
 
+
+
 async function ask() {
-  
   const question = document.getElementById("question").value;
   const loading = document.getElementById("loading-msg");
   const answerBox = document.getElementById("answer");
@@ -117,21 +171,15 @@ async function ask() {
   const cardBox = document.getElementById("ref-detail");
   const selectedModel = document.getElementById("model").value;
   const askBtn = document.getElementById("ask-btn");
+
   askBtn.disabled = true;
   askBtn.classList.add("opacity-50", "cursor-not-allowed");
-  
-
-  // ✅ 최근 질문 저장
-  const history = JSON.parse(localStorage.getItem("vat-history") || "[]");
-  history.unshift({ question, lang, timestamp: Date.now() });
-  localStorage.setItem("vat-history", JSON.stringify(history.slice(0, 10)));
-  renderRecentQuestions();
 
   // ✅ 질문 유효성 검사
   if (!question.trim()) {
-    showError(lang === "en"
-      ? "Please enter your question."
-      : "질문을 입력해 주세요.");
+    showError(lang === "en" ? "Please enter your question." : "질문을 입력해 주세요.");
+    askBtn.disabled = false;
+    askBtn.classList.remove("opacity-50", "cursor-not-allowed");
     return;
   }
   if (question.trim().length < 10) {
@@ -140,24 +188,52 @@ async function ask() {
       : "조금 더 구체적인 질문을 입력해 주세요. (10자 이상)");
     return;
   }
-  hideError();  // ✅ 질문 정상 입력 시 에러 숨김
-  
-  // ✅ 로딩 메시지 표시
-  loading.innerText = lang === "en" ? "⏳ Searching..." : "⏳ 검색 중입니다...";
+
+  hideError();
+
+  // ✅ 최근 질문 저장 (언어별 key 사용)
+  const history = JSON.parse(
+    localStorage.getItem(`vat-history-${lang}`) || "[]"
+  );
+  history.unshift({ question, lang, timestamp: Date.now() });
+  localStorage.setItem(`vat-history-${lang}`, JSON.stringify(history.slice(0, 10)));
+  renderRecentQuestions();
+
+  // ✅ 화면 초기화
+  loading.textContent = lang === "en" ? "⏳ Searching..." : "⏳ 검색 중입니다...";
   loading.classList.remove("hidden");
-  answerBox.innerText = "";
+  // ✅ ask() 함수 초반: 로딩 시작 직후
+  const reportImg = document.getElementById("gpt-report-img");
+  if (reportImg) reportImg.style.opacity = "0.2";
+
+
+  // ✅ 관련 컴포넌트 초기화
+  document.getElementById("law-tree").innerHTML = "";
+  document.getElementById("law-text").textContent = "";
+  document.getElementById("ref-detail").innerHTML = "";
+  document.getElementById("references").innerHTML = "";
+  document.querySelectorAll(".summary-box").forEach(el => el.remove());
+
+  // ✅ GPT 리포트 이미지 초기화 (로딩 중 숨김 또는 흐림처리 가능)
+  // const reportImg = document.querySelector('img[src="/static/report.png"]');
+  if (reportImg) reportImg.style.opacity = "0.3"; // or use display: none
+
+
+  // ✅ 응답 관련 초기화
+  document.querySelectorAll(".summary-box").forEach(el => el.remove());
+  answerBox.textContent = "";
   refBox.innerHTML = "";
   cardBox.innerHTML = "";
 
   await new Promise(r => setTimeout(r, 50));
 
+  // ✅ 언어 자동 감지
   const isEnglish = /^[a-zA-Z0-9\s.,?!'"()%\-+=:;@#$%^&*<>[\]{}\\|]+$/.test(question.trim());
   const langDetect = isEnglish ? "en" : lang;
 
-  setLang(langDetect); // ✅ UI 상태도 정확히 반영
-  
   console.log("🧠 감지된 언어:", langDetect);
 
+  // ✅ 요청
   const res = await fetch("/ask", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -165,27 +241,30 @@ async function ask() {
   });
 
   const data = await res.json();
-
-  if (!data || !data.answer) {
-    console.warn("❗️GPT 응답이 비어있습니다:", data);
-  } 
-
-  console.log("📦 응답 확인:", data);
-
   translatedNames = data.translated_names || {};
   loading.classList.add("hidden");
-  loading.innerText = "";
 
-  // ✅ 응답이 유효한 경우에만 출력
-  if (data.answer) {
-    answerBox.innerText = data.answer;
-    document.getElementById("result-container").classList.remove("hidden");
-  } else {
-    answerBox.innerText = lang === "en" ? "❌ No answer returned." : "❌ 답변을 불러오지 못했습니다.";
+  if (!data || !data.answer) {
+    answerBox.textContent = langDetect === "en" ? "❌ No answer returned." : "❌ 답변을 불러오지 못했습니다.";
+    return;
   }
 
+  // ✅ 언어 설정 동기화
+  setLang(langDetect);
+  answerBox.textContent = data.answer;
+  document.getElementById("result-container").classList.remove("hidden");
+
+  // ✅ 요약
+  if (data.summary) {
+    const summaryBox = document.createElement("div");
+    summaryBox.className = "summary-box bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 p-3 mb-4 text-sm rounded";
+    summaryBox.innerHTML = `📌 <strong>${langDetect === "en" ? "Summary" : "요약"}:</strong> ${data.summary}`;
+    answerBox.before(summaryBox);
+  }
+
+  // ✅ 법령 원문 표시
   const lawTextBox = document.getElementById("law-text");
-  const rawLaw = data.law_text || (lang === "en" ? "No law text returned." : "법령 원문이 없습니다.");
+  const rawLaw = data.law_text || (langDetect === "en" ? "No law text returned." : "법령 원문이 없습니다.");
 
   const sections = rawLaw.split(/\[(.*?)\]/g);
   let html = "";
@@ -194,68 +273,54 @@ async function ask() {
     const content = highlightLawText(sections[i + 1] || "");
     html += `<div class="mb-3"><strong>[${header}]</strong><br><div class="mt-1">${content}</div></div>`;
   }
-  lawTextBox.innerHTML = html || (lang === "en" ? "No law text returned." : "법령 원문이 없습니다.");
+  lawTextBox.innerHTML = html || (langDetect === "en" ? "No law text returned." : "법령 원문이 없습니다.");
 
-
+  // ✅ Confidence
   if (data.confidence !== undefined) {
     const rate = parseFloat(data.confidence);
     let level = "text-gray-600", emoji = "🟢", label = "";
-  
     if (rate >= 90) {
-      level = "text-green-600";
-      emoji = "✅";
-      label = lang === "en" ? "Highly Reliable" : "매우 신뢰 가능";
+      level = "text-green-600"; emoji = "✅"; label = langDetect === "en" ? "Highly Reliable" : "매우 신뢰 가능";
     } else if (rate >= 75) {
-      level = "text-yellow-600";
-      emoji = "⚠️";
-      label = lang === "en" ? "Moderate" : "주의 필요";
+      level = "text-yellow-600"; emoji = "⚠️"; label = langDetect === "en" ? "Moderate" : "주의 필요";
     } else {
-      level = "text-red-600";
-      emoji = "❗";
-      label = lang === "en" ? "Uncertain" : "신뢰도 낮음";
+      level = "text-red-600"; emoji = "❗"; label = langDetect === "en" ? "Uncertain" : "신뢰도 낮음";
     }
-  
-    const msg = lang === "en"
+    const msg = langDetect === "en"
       ? `Confidence: ${rate}% – ${label}`
       : `신뢰도: ${rate}% – ${label}`;
-  
-    const badge = `<div class="mt-2 ${level} text-sm font-medium">${emoji} ${msg}</div>`;
-    answerBox.innerHTML += badge;
-    renderLawTree(data.references || []);
+    answerBox.innerHTML += `<div class="mt-2 ${level} text-sm font-medium">${emoji} ${msg}</div>`;
   }
 
-  if (data.summary) {
-    document.querySelectorAll(".summary-box").forEach(el => el.remove());
-    const summaryBox = document.createElement("div");
-    summaryBox.className = "bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 p-3 mb-4 text-sm rounded";
-    summaryBox.innerHTML = `📌 <strong>${lang === "en" ? "Summary" : "요약"}:</strong> ${data.summary}`;
-    answerBox.before(summaryBox);
-  }
-
+  // ✅ 참조 조문 목록
   if (Array.isArray(data.references)) {
-    const refLabel = lang === "en" ? "📎 Referenced Laws / Precedents:" : "📎 인용된 법령/판례:";
+    const refLabel = langDetect === "en"
+      ? "📎 Referenced Laws / Precedents:"
+      : "📎 인용된 법령/판례:";
+
     const list = data.references.map(ref => {
       const tip = (data.summaries?.[ref] || "").replace(/"/g, "'");
       const usage = (data.mappings?.[ref] || "").replace(/"/g, "'");
-      const tooltipLabel = lang === "en" ? "Example" : "예시";
+      const tooltipLabel = langDetect === "en" ? "Example" : "예시";
       const tooltip = `${tip}\n\n${tooltipLabel}:\n${usage}`;
-      const norm = ref => ref.replace(/\s+/g, "");
-      
-      // ✅ 번역된 조문명이 있으면 사용
-      const displayRef = lang === "en" && data.translated_names?.[norm(ref)]
-        ? data.translated_names[norm(ref)]
+      const norm = ref.replace(/\s+/g, "");
+      const displayRef = langDetect === "en" && data.translated_names?.[norm]
+        ? data.translated_names[norm]
         : ref;
-    
       return `<li><a href="#" class="text-blue-600 underline" title="${tooltip}" onclick="showRefCard('${ref}', \`${tip}\`, \`${usage}\`); return false;">[${displayRef}]</a></li>`;
     }).join("");
-    
+
     refBox.innerHTML = `<div class="mt-3 text-sm"><strong>${refLabel}</strong><ul class="list-disc ml-5 mt-1">${list}</ul></div>`;
   }
+
+  renderLawTree(data.references || []);
   bindFilterAndSortEvents();
+  if (reportImg) reportImg.style.opacity = "1";
+
   askBtn.disabled = false;
   askBtn.classList.remove("opacity-50", "cursor-not-allowed");
-  
 }
+
 
 function showRefCard(tag, tip, usage) {
   const box = document.getElementById("ref-detail");
@@ -263,12 +328,15 @@ function showRefCard(tag, tip, usage) {
   const existing = document.getElementById("card_" + id);
 
   if (existing) {
-    // ✅ 이미 열려 있으면 제거 (접기)
     existing.remove();
     return;
   }
 
-  // ✅ 없으면 새로 생성 (펼치기)
+  if (!tip.trim() && !usage.trim()) {
+    console.warn(`❗️ 카드 내용 없음: ${tag}`);
+    return;
+  }
+
   const card = document.createElement("div");
   card.id = "card_" + id;
   card.className = "law-card border p-3 rounded bg-white shadow text-sm mb-2";
@@ -278,40 +346,73 @@ function showRefCard(tag, tip, usage) {
     ? translatedNames[norm(tag)]
     : tag;
 
+  const tipSafe = tip?.trim() || (lang === "en" ? "(No summary available)" : "(요약 없음)");
+  const usageSafe = usage?.trim() || (lang === "en" ? "(No example found)" : "(예시 없음)");
+
   card.innerHTML = `
     <strong>[${displayTag}]</strong>
     <div class="law-content mt-1">
-      📘 ${tip}<br>
-      💬 ${(lang === "en" ? "Example" : "예시")}: ${usage}
+      📘 ${tipSafe}<br>
+      💬 ${lang === "en" ? "Example" : "예시"}: ${usageSafe}
     </div>
   `;
 
   box.appendChild(card);
 }
 
+
 function renderRecentQuestions() {
   const box = document.getElementById("recent-questions");
-  const history = JSON.parse(localStorage.getItem(`vat-history-${lang}`) || "[]");
+  const history = JSON.parse(
+    localStorage.getItem(`vat-history-${lang}`) ||
+    localStorage.getItem("vat-history") || "[]"
+  );
 
-  if (!history.length) return box.innerHTML = "";
+  if (!history.length) {
+    box.innerHTML = "";
+    return;
+  }
 
   const title = lang === "en" ? "🕘 Recent Questions:" : "🕘 최근 질문:";
   const items = history.map(q => {
-    const preview = q.question.split(/[.!?]/).slice(0, 2).join(". ").trim() + "...";
-    return `<li><a href="#" class="text-blue-600 hover:underline recent-item">${preview}</a></li>`;
+    const full = q.question;
+    const preview = full.split(/[.!?]/).slice(0, 2).join(". ").trim() + "...";
+    const timestamp = new Date(q.timestamp).toLocaleString(lang === "en" ? "en-US" : "ko-KR", {
+      hour: "2-digit", minute: "2-digit", year: "numeric", month: "short", day: "numeric"
+    });
+
+    return `
+      <div class="flex items-start gap-2 group cursor-pointer recent-item" data-full="${escapeHTML(full)}">
+        <div class="mt-1 text-blue-400">🕓</div>
+        <div class="flex-1">
+          <div class="text-gray-800 dark:text-gray-200 group-hover:underline">${escapeHTML(preview)}</div>
+          <div class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${timestamp}</div>
+        </div>
+      </div>
+    `;
   }).join("");
 
-  box.innerHTML = `<div class="mb-1 font-medium">${title}</div><ul class="list-disc ml-5 space-y-1">${items}</ul>`;
+  box.innerHTML = `<div class="mb-1 font-medium">${title}</div>${items}`;
 
   document.querySelectorAll(".recent-item").forEach(el => {
     el.addEventListener("click", e => {
-      e.preventDefault();
-      const question = e.target.innerText;
-      document.getElementById("question").value = question;
+      const full = el.dataset.full;
+      document.getElementById("question").value = full;
       document.getElementById("question").scrollIntoView({ behavior: "smooth" });
     });
   });
 }
+
+
+
+
+function escapeHTML(str) {
+  return str.replace(/[&<>"']/g, s => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[s]);
+}
+
+
 
 document.getElementById("toggle-references").addEventListener("click", () => {
   const list = document.getElementById("references");
@@ -323,7 +424,7 @@ document.getElementById("toggle-references").addEventListener("click", () => {
   list.classList.toggle("hidden");
   cards.classList.toggle("hidden");
 
-  btn.innerText = isHidden
+  btn.textContent = isHidden
     ? (lang === "en" ? "📎 Hide referenced laws ▴" : "📎 인용된 법령/판례 접기 ▴")
     : (lang === "en" ? "📎 Show referenced laws ▾" : "📎 인용된 법령/판례 보기 ▾");
 });
@@ -342,7 +443,7 @@ document.getElementById("toggle-lawtext").addEventListener("click", () => {
   const section = document.getElementById("law-text");
   const btn = document.getElementById("toggle-lawtext");
   section.classList.toggle("hidden");
-  btn.innerText = section.classList.contains("hidden")
+  btn.textContent = section.classList.contains("hidden")
     ? (lang === "en" ? "📖 Show Law Text ▾" : "📖 법령 원문 보기 ▾")
     : (lang === "en" ? "📖 Hide Law Text ▴" : "📖 법령 원문 접기 ▴");
 });
@@ -352,11 +453,27 @@ document.getElementById("toggle-cards").addEventListener("click", () => {
   const section = document.getElementById("ref-detail");
   const btn = document.getElementById("toggle-cards");
   section.classList.toggle("hidden");
-  btn.innerText = section.classList.contains("hidden")
+  btn.textContent = section.classList.contains("hidden")
     ? (lang === "en" ? "📘 Show Cards ▾" : "📘 카드 전체 보기 ▾")
     : (lang === "en" ? "📘 Hide Cards ▴" : "📘 카드 전체 접기 ▴");
 });
 
 
-// ✅ 질문 버튼 클릭 시 ask() 실행되도록 연결
-document.getElementById("ask-btn").addEventListener("click", ask);
+// ✅ 안전 초기화: 중복 바인딩 제거 + 렌더링 실행
+function initApp() {
+  // 1️⃣ 이벤트 중복 방지 & 바인딩
+  const askButton = document.getElementById("ask-btn");
+  askButton.onclick = null;
+  askButton.addEventListener("click", ask);
+
+  // 2️⃣ 필터/정렬 바인딩 재설정
+  bindFilterAndSortEvents();
+
+  // 3️⃣ 최근 질문 렌더링 포함 언어 초기화
+  setLang(lang);
+
+  // 4️⃣ 기타 토글 바인딩 유지 (이미 위에 존재해야 함)
+}
+
+// ✅ DOM 로드 후 실행
+document.addEventListener("DOMContentLoaded", initApp);
