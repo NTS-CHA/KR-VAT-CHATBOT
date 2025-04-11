@@ -199,7 +199,7 @@ def gpt_call(model, messages, temperature=0.2, timeout=30):
         encoding = tiktoken.encoding_for_model(model)
         prompt_tokens = sum(len(encoding.encode(msg.get("content", ""))) for msg in messages)
 
-        completion = openai.chat.completions.create(
+        completion = openai.ChatCompletion.create(
             model=model,
             messages=messages,
             temperature=temperature,
