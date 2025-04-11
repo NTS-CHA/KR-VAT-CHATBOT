@@ -75,7 +75,7 @@ def log_question_to_sqlite(
                 timestamp TEXT,
                 question TEXT,
                 answer TEXT,
-                references TEXT,
+                ref_tags TEXT,
                 summaries TEXT,
                 mappings TEXT,
                 confidence INTEGER,
@@ -90,7 +90,7 @@ def log_question_to_sqlite(
 
         cur.execute("""
             INSERT INTO question_logs (
-                timestamp, question, answer, references, summaries, mappings,
+                timestamp, question, answer, ref_tags, summaries, mappings,
                 confidence, summary, lang, model, precision, recall, f1
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -1084,7 +1084,7 @@ def gpt_cost_report_sql(
 ):
     # ✅ 한글 폰트 지정
     try:
-        font_path = "C:/Windows/Fonts/malgun.ttf"  # 또는 "NanumGothic.ttf"
+        font_path = "/usr/share/fonts/truetype/nanum/NanumGothic.ttf"
         font_name = fm.FontProperties(fname=font_path).get_name()
         plt.rc("font", family=font_name)
     except Exception as e:
