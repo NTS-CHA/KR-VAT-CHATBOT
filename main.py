@@ -1,27 +1,21 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from openai import OpenAI
-from typing import Literal
-import os, time, json, requests, csv
-from dotenv import load_dotenv
-from pathlib import Path
-import re
+from typing import Literal, Optional
+import os, time, json, csv, re, inspect, unicodedata
 import tiktoken
-import inspect
 from functools import lru_cache
 from datetime import datetime
-import unicodedata
 import pandas as pd
 import matplotlib.pyplot as plt
-
-
-# log_file_path = "logs/gpt_calls.csv"
-# if os.path.exists(log_file_path):
-#     df = pd.read_csv(log_file_path)
-#     if "purpose" in df.columns and not df.empty:
-#         df.groupby("purpose")["cost"].sum().plot(kind="bar")
+import matplotlib.font_manager as fm
+import sqlite3
+import requests
+from dotenv import load_dotenv
+from pathlib import Path
+import sqlite3
 
 
 purpose_map = {
@@ -42,9 +36,11 @@ GPT_MODEL_LIGHT = "gpt-3.5-turbo"
 load_dotenv()
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-if not os.getenv("OPENAI_API_KEY"):
+key = os.getenv("OPENAI_API_KEY")
+if not key:
     raise RuntimeError("❌ OPENAI_API_KEY 환경변수가 설정되지 않았습니다.")
+client = OpenAI(api_key=key)
+
 
 _translation_cache = {}
 log_file = "logs/gpt_calls.csv"
@@ -55,6 +51,70 @@ if not os.path.exists(log_file):
     with open(log_file, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["timestamp", "function", "model", "prompt_tokens", "output_tokens", "total_tokens", "cost", "duration", "purpose"])
+
+def log_question_to_sqlite(
+    question: str,
+    answer: str,
+    references: list,
+    summaries: dict,
+    mappings: dict,
+    confidence: int,
+    summary: str,
+    lang: str,
+    model: str,
+    metrics: dict,
+    db_path="logs/gpt_calls.db"
+):
+    try:
+        conn = sqlite3.connect(db_path)
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS question_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT,
+                question TEXT,
+                answer TEXT,
+                references TEXT,
+                summaries TEXT,
+                mappings TEXT,
+                confidence INTEGER,
+                summary TEXT,
+                lang TEXT,
+                model TEXT,
+                precision REAL,
+                recall REAL,
+                f1 REAL
+            );
+        """)
+
+        cur.execute("""
+            INSERT INTO question_logs (
+                timestamp, question, answer, references, summaries, mappings,
+                confidence, summary, lang, model, precision, recall, f1
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            datetime.now().isoformat(),
+            question,
+            answer,
+            json.dumps(references, ensure_ascii=False),
+            json.dumps(summaries, ensure_ascii=False),
+            json.dumps(mappings, ensure_ascii=False),
+            confidence,
+            summary,
+            lang,
+            model,
+            metrics.get("precision", 0.0),
+            metrics.get("recall", 0.0),
+            metrics.get("f1", 0.0)
+        ))
+
+        conn.commit()
+        conn.close()
+        print("📝 질문 로그 저장 완료")
+    except Exception as e:
+        print(f"❌ 질문 로그 저장 실패: {e}")
+
 
 def normalize_ref(ref: str) -> str:
     return re.sub(r"\s+", "", ref.strip())
@@ -70,20 +130,58 @@ def sanitize_messages(messages):
         for msg in messages
     ]
 
-def log_gpt_call(model, caller, prompt_tokens, output_tokens, total_tokens, cost, duration, purpose):
-    try:
-        with open(log_file, "a", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            writer.writerow([
-                datetime.now().isoformat(), caller, model,
-                prompt_tokens, output_tokens, total_tokens,
-                f"{cost:.6f}", f"{duration:.3f}", purpose
-            ])
-    except UnicodeEncodeError as e:
-        print(f"⚠️ 로그 저장 생략: {e}")
+
+
+
+
+def log_gpt_call_sql(
+    model: str,
+    caller: str,
+    prompt_tokens: int,
+    output_tokens: int,
+    total_tokens: int,
+    cost: float,
+    duration: float,
+    purpose: str,
+    db_path: str = "logs/gpt_calls.db"
+):
+    os.makedirs("logs", exist_ok=True)
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS gpt_calls (
+            timestamp TEXT,
+            function TEXT,
+            model TEXT,
+            prompt_tokens INTEGER,
+            output_tokens INTEGER,
+            total_tokens INTEGER,
+            cost REAL,
+            duration REAL,
+            purpose TEXT
+        )
+    ''')
+
+    c.execute('''
+        INSERT INTO gpt_calls VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        datetime.now().isoformat(),
+        caller,
+        model,
+        prompt_tokens,
+        output_tokens,
+        total_tokens,
+        round(cost, 6),
+        round(duration, 3),
+        purpose
+    ))
+    conn.commit()
+    conn.close()
+
 
 def gpt_call(model, messages, temperature=0.2, timeout=30):
-    start = time.time()  # ⏱ 호출 시간 측정 시작
+    start = time.time()
     caller = inspect.stack()[1].function
     purpose = purpose_map.get(caller, caller)
     messages = sanitize_messages(messages)
@@ -122,13 +220,13 @@ def gpt_call(model, messages, temperature=0.2, timeout=30):
         except UnicodeEncodeError:
             print(f"✅ GPT 호출 완료 (log 출력 생략됨 — surrogate 포함 가능성)")
 
-        log_gpt_call(model, caller, prompt_tokens, output_tokens, total_tokens, cost, duration, purpose)
+        log_gpt_call_sql(model, caller, prompt_tokens, output_tokens, total_tokens, cost, duration, purpose)
         return completion
 
     except Exception as e:
         duration = round(time.time() - start, 3)
         print(f"❌ GPT 호출 실패 in {caller} | model={model} | error={e}")
-        log_gpt_call(model, caller, 0, 0, 0, 0.0, duration, purpose)
+        log_gpt_call_sql(model, caller, 0, 0, 0, 0.0, duration, purpose)
         raise
 
 def safe_gpt_call(*args, retries=2, **kwargs):
@@ -224,6 +322,24 @@ class Query(BaseModel):
     law_id: str = "부가가치세법"
     model: str = "gpt-4"  
 
+# ✅ 법령 태그 정답 vs 예측 비교를 위한 F1-like 평가 함수
+def compute_reference_f1(pred_refs, true_refs):
+    pred_set = set(map(str.strip, pred_refs))
+    true_set = set(map(str.strip, true_refs))
+    tp = len(pred_set & true_set)
+    precision = tp / len(pred_set) if pred_set else 0
+    recall = tp / len(true_set) if true_set else 0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) else 0
+    return {
+        "precision": round(precision, 3),
+        "recall": round(recall, 3),
+        "f1": round(f1, 3),
+        "true_positive": tp,
+        "pred_count": len(pred_set),
+        "true_count": len(true_set)
+    }
+
+
 def parse_law_text_to_dict(law_text: str) -> dict:
     lines = law_text.splitlines()
     current_key = ""
@@ -237,22 +353,54 @@ def parse_law_text_to_dict(law_text: str) -> dict:
     return mapping
 
 def self_rate_answer(question: str, answer: str) -> int:
+    if not answer or len(answer.strip()) < 30 or "❌" in answer:
+        return 0
+
     try:
-        completion = gpt_call(
+        # Step 1: confidence 점수
+        rating = gpt_call(
             model=GPT_MODEL_LIGHT,
             messages=[
-                {"role": "system", "content": "You are a legal accuracy evaluator. Rate how confident you are in the accuracy of this answer (0-100). Respond only like: Confidence: 87"},
+                {"role": "system", "content": (
+                    "You are a legal accuracy evaluator. Respond only with: Confidence: 0~100."
+                )},
                 {"role": "user", "content": f"Question: {question}\nAnswer: {answer}"}
             ],
-            temperature=0.2,
-            timeout=30
+            temperature=0.0,
+            timeout=15
         )
-        line = completion.choices[0].message.content.strip()
-        if "Confidence" in line:
-            return int("".join(filter(str.isdigit, line)))
-    except Exception:
-        pass
-    return 0
+        line = rating.choices[0].message.content.strip()
+        match = re.search(r"Confidence:\s*(\d{1,3})", line)
+        score = int(match.group(1)) if match else 0
+
+        # Step 2: 질문과 응답이 실제 관련 있는지 확인
+        alignment = gpt_call(
+            model=GPT_MODEL_LIGHT,
+            messages=[
+                {"role": "system", "content": (
+                    "Does this answer directly address the user's question? "
+                    "Respond only with YES or NO."
+                )},
+                {"role": "user", "content": f"Question: {question}\nAnswer: {answer}"}
+            ],
+            temperature=0.0,
+            timeout=15
+        )
+        verdict = alignment.choices[0].message.content.strip().upper()
+
+        if verdict not in ["YES", "Y", "YES."]:
+            print("⚠️ GPT 판단: 질문과 관련 없음 → confidence 0 처리")
+            return 0
+
+        print(f"🧠 Confidence: {score} (alignment: {verdict})")
+        return max(0, min(score, 100))
+
+    except Exception as e:
+        print("❌ self_rate_answer 오류:", e)
+        return 0
+
+
+
 
 def extract_law_references_and_omission(answer: str) -> tuple[list[str], dict]:
     bracketed = re.findall(r"\[(.*?)\]", answer)
@@ -291,7 +439,8 @@ def extract_law_reference_mapping(answer: str, refs: list[str], lang="ko", tag_l
         law_text = clean_input(law_text)
         try:
             completion = gpt_call(
-                model=GPT_MODEL_MAIN,
+                # model=GPT_MODEL_MAIN,
+                model=GPT_MODEL_LIGHT,
                 messages=[
                     {"role": "system", "content": sys_msg},
                     {"role": "user", "content": f"Answer: {answer}\nReference: {ref}\nLaw: {law_text}"}
@@ -339,7 +488,8 @@ def summarize_reference_tags(refs: list[str], lang="ko", tag_law_map: dict[str, 
         )
         try:
             completion = gpt_call(
-                model=GPT_MODEL_MAIN,
+                # model=GPT_MODEL_MAIN,
+                model=GPT_MODEL_LIGHT,
                 messages=[
                     {"role": "system", "content": sys_msg},
                     {"role": "user", "content": f"[{tag}]\n{law_text}"}
@@ -364,7 +514,8 @@ def summarize_reference_tags(refs: list[str], lang="ko", tag_law_map: dict[str, 
 def auto_infer_references(question: str, answer: str) -> list[str]:
     try:
         completion = gpt_call(
-            model=GPT_MODEL_MAIN,
+            # model=GPT_MODEL_MAIN,
+            model=GPT_MODEL_LIGHT,
             messages=[
                 {"role": "system", "content": "사용자 질문과 GPT의 응답을 바탕으로 관련된 한국 세법 조문 이름을 최대 3개까지 추출해줘. 반드시 [조문명] 형태로 대괄호로 감싸서 목록으로 출력해. 예: [부가가치세법 제25조]"},
                 {"role": "user", "content": f"질문: {question}\n응답: {answer}"}
@@ -372,7 +523,8 @@ def auto_infer_references(question: str, answer: str) -> list[str]:
             temperature=0.2,
             timeout=15
         )
-        return re.findall(r"\\[(.*?)\\]", completion.choices[0].message.content)
+        return re.findall(r"\[(.*?)\]", completion.choices[0].message.content)
+
     except Exception as e:
         print(f"⚠️ 태그 자동추론 실패: {e}")
         return []
@@ -424,7 +576,8 @@ def ask_with_law_context(question: str, law_text: str, precedents: str = "", lan
 
     try:
         response = safe_gpt_call(
-            model=GPT_MODEL_MAIN,
+            # model=GPT_MODEL_MAIN,
+            model=GPT_MODEL_LIGHT,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": content}
@@ -456,7 +609,8 @@ def ask_with_law_context(question: str, law_text: str, precedents: str = "", lan
         prompt = f"Answer:\n{answer}\n\nTags:\n" + "\n".join([f"- {ref}" for ref in refs])
 
         completion = safe_gpt_call(
-            model=GPT_MODEL_MAIN,
+            # model=GPT_MODEL_MAIN,
+            model=GPT_MODEL_LIGHT,
             messages=[
                 {"role": "system", "content": sys_msg},
                 {"role": "user", "content": prompt}
@@ -474,9 +628,8 @@ def ask_with_law_context(question: str, law_text: str, precedents: str = "", lan
             summaries = {k: fix_tag_spacing(v["summary"]) for k, v in parsed.items()}
             mappings = {k: fix_tag_spacing(v["example"]) for k, v in parsed.items()}
         except Exception as e:
-            print(f"⚠️ JSON 파싱 실패: {e}")
-            summaries = summarize_reference_tags(refs, lang, tag_law_map)
-            mappings = extract_law_reference_mapping(answer, refs, lang, tag_law_map)
+            print("⚠️ JSON 실패. fallback 생략함:", e)
+            summaries, mappings = {}, {}
 
         return answer, refs, summaries, mappings
     except Exception as e:
@@ -690,10 +843,49 @@ def deduplicate_refs(refs: list[str]) -> list[str]:
             normalized[key] = r
     return list(normalized.values())
 
+
+@lru_cache(maxsize=1)
+def load_reference_gold_labels() -> dict:
+    try:
+        with open("reference_gold_labels.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"⚠️ gold label JSON 로딩 실패: {e}")
+        return {}
+
+def get_true_refs(question: str, lang="ko") -> list[str]:
+    # 1️⃣ 키워드 기반 우선
+    gold_labels = load_reference_gold_labels()
+    for keyword, refs in gold_labels.items():
+        if keyword in question:
+            print(f"✅ Keyword matched: {keyword}")
+            return refs
+
+    # 2️⃣ fallback → GPT 기반 정답 조문 추론
+    try:
+        completion = gpt_call(
+            # model=GPT_MODEL_MAIN,
+            model=GPT_MODEL_LIGHT,
+            messages=[
+                {"role": "system", "content": (
+                    "사용자 질문을 기반으로 관련된 한국 부가가치세법 조문명을 최대 3개까지 추출해줘. 반드시 [조문명] 형식으로 출력해."
+                )},
+                {"role": "user", "content": f"질문: {question}"}
+            ],
+            temperature=0.2,
+            timeout=20
+        )
+        return re.findall(r"\[(.*?)\]", completion.choices[0].message.content)
+    except Exception as e:
+        print(f"⚠️ GPT fallback 실패: {e}")
+        return []
+
 @app.post("/ask")
 async def ask(query: Query, request: Request):
     translated_question = query.question
-    model_used = query.model or GPT_MODEL_MAIN
+    
+    # model_used = query.model or GPT_MODEL_MAIN
+    model_used = query.model or GPT_MODEL_LIGHT
     if query.lang == "en":
         try:
             completion = gpt_call(
@@ -713,17 +905,18 @@ async def ask(query: Query, request: Request):
             )
             translated_question = completion.choices[0].message.content.strip()
             translated_question = clean_input(translated_question)
+            
         except Exception as e:
             print("⚠️ 영어 질문 한글 번역 실패:", e)
             print("✅ Query Received:", query.model_dump())
             translated_question = query.question  # fallback
 
+    true_refs = get_true_refs(translated_question, query.lang)
     law_text = fetch_combined_laws_cached((
         "부가가치세법", "부가가치세법시행령", "부가가치세법시행규칙"
     ), lang=query.lang)
 
     prec_text = fetch_precedents_full(query.question, max_count=3)
-
 
     result = ask_with_law_context(
         translated_question,
@@ -738,6 +931,11 @@ async def ask(query: Query, request: Request):
 
     answer, refs, summaries, mappings = result
     refs = deduplicate_refs(refs)
+
+    # ✅ 평가 적용
+    metrics = compute_reference_f1(refs, true_refs)
+    print("📊 Auto-eval:", metrics)
+
     translated_names = {
         normalize_ref(ref): format_english_law_tag(smart_translate_law_tag(ref))
         for ref in refs
@@ -763,7 +961,6 @@ async def ask(query: Query, request: Request):
         for part in ai_parts:
             norm = normalize_ref(part)
             eng = smart_translate_law_tag(part)
-            # ✅ 중복 치환 방지 추가
             if eng and part in answer:
                 answer = answer.replace(part, eng)
                 summaries = {
@@ -782,8 +979,21 @@ async def ask(query: Query, request: Request):
     summaries = {k: fix_tag_spacing(v) for k, v in summaries.items()}
     mappings = {k: fix_tag_spacing(v) for k, v in mappings.items()}
     summary = extract_summary(answer, query.lang)
-    # 🔁 질문 응답 처리 끝나고 자동 리포트 생성
-    gpt_cost_report()
+
+    gpt_cost_report_sql()
+
+    log_question_to_sqlite(
+        question=query.question,
+        answer=answer,
+        references=refs,
+        summaries=summaries,
+        mappings=mappings,
+        confidence=confidence,
+        summary=summary,
+        lang=query.lang,
+        model=model_used,
+        metrics=metrics
+    )
 
     return {
         "answer": answer,
@@ -794,53 +1004,216 @@ async def ask(query: Query, request: Request):
         "omission_stats": omission_stats,
         "translated_names": translated_names,
         "law_text": law_text,
-        "summary": summary 
+        "summary": summary,
+        "metrics": metrics
     }
 
-def gpt_cost_report(log_path="logs/gpt_calls.csv", save_path="static/report.png"):
+# 💰 1. 모델별 비용
+def plot_model_costs_save(df, path="static/chart_cost.png"):
     try:
-        df = pd.read_csv(log_path, on_bad_lines='skip')
+        model_costs = df.groupby("model")["cost"].sum()
+        if model_costs.sum() > 0:
+            fig, ax = plt.subplots(figsize=(6, 5))
+            bars = model_costs.plot(kind="bar", ax=ax, color="skyblue")
+            ax.set_title("Total Cost by Model", fontsize=14)
+            ax.set_ylabel("USD ($)")
+            ax.set_xlabel("Model")
+            for bar in bars.patches:
+                ax.annotate(f"${bar.get_height():.2f}", (bar.get_x() + bar.get_width()/2, bar.get_height()),
+                            ha="center", va="bottom", fontsize=10)
+            plt.tight_layout()
+            # plt.savefig(path)
+            print(f"✅ 저장 완료: {path}")
+            plt.savefig(path, bbox_inches='tight')
+            plt.close()
     except Exception as e:
-        print(f"⚠️ 로그 로딩 실패: {e}")
+        print(f"❌ 비용 차트 실패: {e}")
+
+# 📦 2. 기능별 사용 분포
+def plot_usage_distribution_save(df, path="static/chart_usage.png"):
+    try:
+        if "purpose" in df.columns:
+            purpose_counts = df["purpose"].value_counts()
+            if purpose_counts.sum() > 0:
+                fig, ax = plt.subplots(figsize=(6, 5))
+                bars = purpose_counts.plot(kind="bar", ax=ax, color=plt.cm.Pastel1.colors)
+                ax.set_title("GPT Usage Distribution", fontsize=14)
+                ax.set_ylabel("Calls")
+                ax.set_xlabel("Purpose")
+                ax.grid(axis="y", linestyle="--", alpha=0.4)
+                for bar in bars.patches:
+                    ax.annotate(f"{int(bar.get_height())}", (bar.get_x() + bar.get_width()/2, bar.get_height()),
+                                ha="center", va="bottom", fontsize=10)
+                plt.tight_layout()
+                plt.savefig(path, bbox_inches='tight')
+                print(f"✅ 저장 완료: {path}")
+                plt.close()
+    except Exception as e:
+        print(f"❌ 목적 차트 실패: {e}")
+
+
+
+# ⏱ 3. 평균 응답 시간
+def plot_avg_response_time_save(df, path="static/chart_time.png"):
+    try:
+        if "duration" in df.columns:
+            model_duration = df.groupby("model")["duration"].mean()
+            if model_duration.sum() > 0:
+                fig, ax = plt.subplots(figsize=(6, 5))
+                bars = model_duration.plot(kind="bar", ax=ax, color="lightgreen")
+                ax.set_title("Avg Response Time", fontsize=14)
+                ax.set_ylabel("Seconds")
+                ax.set_xlabel("Model")
+                for bar in bars.patches:
+                    ax.annotate(f"{bar.get_height():.2f}s", (bar.get_x() + bar.get_width()/2, bar.get_height()),
+                                ha="center", va="bottom", fontsize=10)
+                plt.tight_layout()
+                plt.savefig(path, bbox_inches='tight')
+                print(f"✅ 저장 완료: {path}")
+                plt.close()
+    except Exception as e:
+        print(f"❌ 시간 차트 실패: {e}")
+
+def gpt_cost_report_sql(
+    db_path="logs/gpt_calls.db",
+    save_path="static/report.png",
+    csv_path="logs/report_filtered.csv",
+    start_date=None,
+    model_filter=None
+):
+    # ✅ 한글 폰트 지정
+    try:
+        font_path = "C:/Windows/Fonts/malgun.ttf"  # 또는 "NanumGothic.ttf"
+        font_name = fm.FontProperties(fname=font_path).get_name()
+        plt.rc("font", family=font_name)
+    except Exception as e:
+        print("⚠️ 한글 폰트 로딩 실패:", e)
+
+    # ✅ 음수 깨짐 방지
+    plt.rcParams["axes.unicode_minus"] = False
+
+    try:
+        conn = sqlite3.connect(db_path)
+        df = pd.read_sql("SELECT * FROM gpt_calls", conn)
+        conn.close()
+    except Exception as e:
+        print(f"❌ DB 로딩 실패: {e}")
         return
 
     if df.empty:
-        print("⚠️ 로그 데이터 없음")
+        print("⚠️ DB 로그 데이터 없음")
         return
 
-    model_costs = df.groupby("model")["cost"].sum()
-    model_duration = df.groupby("model")["duration"].mean() if "duration" in df.columns else None
-    purpose_counts = df["purpose"].value_counts() if "purpose" in df.columns else None
+    # ✅ 날짜 필터
+    if start_date:
+        try:
+            df["timestamp"] = pd.to_datetime(df["timestamp"])
+            start = pd.to_datetime(start_date)
+            df = df[df["timestamp"] >= start]
+        except Exception as e:
+            print(f"⚠️ 날짜 필터링 실패: {e}")
 
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+    # ✅ 모델 필터
+    if model_filter:
+        if isinstance(model_filter, str):
+            model_filter = [model_filter]
+        df = df[df["model"].isin(model_filter)]
 
-    model_costs.plot(kind="bar", ax=axes[0], color="skyblue")
-    axes[0].set_title("💰 모델별 총 비용")
-    axes[0].set_ylabel("USD ($)")
-    axes[0].set_xlabel("Model")
+    if df.empty:
+        print("⚠️ 필터링 후 데이터 없음")
+        return
 
-    if purpose_counts is not None:
-        purpose_counts.plot(kind="bar", ax=axes[1], color="salmon")
-        axes[1].set_title("📦 GPT 기능별 사용 분포")
-        axes[1].set_ylabel("호출 횟수")
-        axes[1].set_xlabel("Purpose")
-
-    if model_duration is not None:
-        model_duration.plot(kind="bar", ax=axes[2], color="lightgreen")
-        axes[2].set_title("⏱ 모델별 평균 응답 시간")
-        axes[2].set_ylabel("Seconds")
-        axes[2].set_xlabel("Model")
-
-    plt.tight_layout()
+    # ✅ CSV 저장
     try:
-        plt.savefig(save_path)
-        print(f"📊 GPT 리포트 저장 완료 → {save_path}")
+        os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+        df.to_csv(csv_path, index=False, encoding="utf-8-sig")
+        print(f"📁 CSV 저장 완료 → {csv_path}")
     except Exception as e:
-        print(f"❌ 이미지 저장 실패: {e}")
-    finally:
-        plt.close()
+        print(f"⚠️ CSV 저장 실패: {e}")
 
+    # ✅ 개별 차트 이미지 저장
+    os.makedirs("static", exist_ok=True)
+    plot_model_costs_save(df, "static/chart_cost.png")
+    plot_usage_distribution_save(df, "static/chart_usage.png")
+    plot_avg_response_time_save(df, "static/chart_time.png")
+
+
+def test_gpt_log_view():
+    # sqlite 연결 문자열 대신 sqlite3 연결 객체를 생성하여 사용합니다.
+    conn = sqlite3.connect("logs/gpt_calls.db")
+    df = pd.read_sql("SELECT * FROM gpt_calls ORDER BY timestamp DESC LIMIT 10", conn)
+    print(df)
+    conn.close()
+
+
+@app.get("/logs")
+async def get_logs(limit: int = 20):
+    try:
+        conn = sqlite3.connect("logs/gpt_calls.db")
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT id, timestamp, question, answer, references, confidence, f1
+            FROM question_logs
+            ORDER BY timestamp DESC
+            LIMIT ?
+        """, (limit,))
+
+        rows = cur.fetchall()
+        columns = [desc[0] for desc in cur.description]
+        result = [dict(zip(columns, row)) for row in rows]
+
+        conn.close()
+        return JSONResponse(content={"logs": result})
+
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
 
 @app.get("/")
 async def root():
     return FileResponse("static/index.html")
+
+@app.get("/logs-ui")
+async def logs_ui():
+    with open("static/logs.html", encoding="utf-8") as f:
+        html = f.read()
+    return HTMLResponse(content=html)
+
+@app.get("/logs-csv")
+def download_filtered_csv(
+    model: Optional[str] = None,
+    keyword: Optional[str] = None,
+    start_date: Optional[str] = None,
+    columns: Optional[str] = None,
+    limit: int = 500
+):
+    try:
+        conn = sqlite3.connect("logs/gpt_calls.db")
+        df = pd.read_sql("SELECT * FROM gpt_calls ORDER BY timestamp DESC", conn)
+        conn.close()
+    except Exception as e:
+        return Response(content=f"DB Load Error: {e}", status_code=500)
+
+    # ✅ 필터링
+    if model:
+        df = df[df["model"] == model]
+    if keyword:
+        df = df[df["question"].str.contains(keyword, na=False)]
+    if start_date:
+        df["timestamp"] = pd.to_datetime(df["timestamp"])
+        df = df[df["timestamp"] >= pd.to_datetime(start_date)]
+
+    if columns:
+        keep_cols = [col for col in columns.split(",") if col in df.columns]
+        df = df[keep_cols]
+
+    df = df.head(limit)
+
+    csv = df.to_csv(index=False, encoding="utf-8-sig")
+    return Response(content=csv, media_type="text/csv", headers={
+        "Content-Disposition": "attachment; filename=filtered_logs.csv"
+    })
+
