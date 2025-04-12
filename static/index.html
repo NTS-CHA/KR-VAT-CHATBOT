@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>VAT GPT Chatbot</title>
-  <script defer src="/static/app.js?v=3"></script>
+  <script defer src="/static/app.js?v=1"></script>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <style>
     .active-filter {
@@ -31,7 +31,7 @@
       </div>
       <textarea id="question" rows="4" class="w-full p-3 border border-gray-300 rounded-lg mb-4" placeholder="질문을 입력하세요..."></textarea>
       <div class="mb-3">
-        <label for="model" class="text-sm font-medium mr-2">모델 선택:</label>
+        <label for="model" class="text-sm font-medium mr-2">Select Model:</label>
         <select id="model" class="border p-1 rounded text-sm">
           <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
           <option value="gpt-4" selected>gpt-4</option>
@@ -61,7 +61,12 @@
         <div id="law-text" class="mt-4 text-sm bg-gray-50 border p-3 rounded whitespace-pre-wrap text-gray-800"></div>
         <div class="mt-6">
           <h2 class="font-semibold text-sm text-gray-700">📊 GPT 사용 리포트</h2>
-          <img id="gpt-report-img" src="/static/report.png" class="mt-2 rounded shadow border transition-opacity duration-300" style="opacity: 1;" />
+          <div class="grid grid-cols-1 gap-4 mt-3">
+            <img src="/static/chart_cost.png" alt="모델별 비용 차트" class="rounded shadow border transition-opacity duration-300"/>
+            <img src="/static/chart_usage.png" alt="GPT 사용 분포 차트" class="rounded shadow border transition-opacity duration-300"/>
+            <img src="/static/chart_time.png" alt="응답 시간 차트" class="rounded shadow border transition-opacity duration-300"/>
+          </div>
+          
           
         </div>
       </div>

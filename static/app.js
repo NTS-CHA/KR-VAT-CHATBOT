@@ -215,8 +215,13 @@ async function ask() {
   document.querySelectorAll(".summary-box").forEach(el => el.remove());
 
   // ✅ GPT 리포트 이미지 초기화 (로딩 중 숨김 또는 흐림처리 가능)
-  // const reportImg = document.querySelector('img[src="/static/report.png"]');
-  if (reportImg) reportImg.style.opacity = "0.3"; // or use display: none
+  const charts = ["chart_cost", "chart_usage", "chart_time"];
+  const ts = Date.now();
+  for (const id of charts) {
+    const img = document.querySelector(`img[src*="${id}.png"]`);
+    if (img) img.src = `/static/${id}.png?v=${ts}`;
+  }
+  
 
 
   // ✅ 응답 관련 초기화

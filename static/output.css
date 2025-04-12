@@ -1,0 +1,67 @@
+
+body {
+  background-color: #f3f4f6;
+  color: #1f2937;
+}
+
+body.dark {
+  background-color: #111827;
+  color: #f9fafb;
+}
+
+/* Fully darken top layout divs, flex containers, etc. */
+.dark body,
+.dark .flex,
+.dark .text-sm,
+.dark .p-6,
+.dark .gap-4 {
+  background-color: #111827 !important;
+  color: #f9fafb !important;
+}
+
+/* Form controls */
+.dark input,
+.dark select,
+.dark textarea,
+.dark label,
+.dark button {
+  background-color: #1f2937 !important;
+  color: #f9fafb !important;
+  border-color: #4b5563 !important;
+}
+
+.dark .bg-white {
+  background-color: #1f2937 !important;
+}
+
+.dark .text-gray-800 {
+  color: #f9fafb !important;
+}
+
+.dark .bg-gray-200 {
+  background-color: #374151 !important;
+}
+
+.dark .text-blue-600 {
+  color: #60a5fa !important;
+}
+
+.dark .border {
+  border-color: #4b5563 !important;
+}
+
+.dark .shadow {
+  box-shadow: 0 1px 2px 0 rgb(255 255 255 / 0.05);
+}
+
+.dark .bg-gray-100 {
+  background-color: #111827 !important;
+}
+
+.dark .bg-gray-300 {
+  background-color: #374151 !important;
+}
+
+.dark .bg-gray-50 {
+  background-color: #1f2937 !important;
+}
