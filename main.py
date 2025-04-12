@@ -673,6 +673,11 @@ def fetch_combined_laws(law_ids: list[str], output: str = "XML", lang: str = "ko
     if not oc_key:
         raise RuntimeError("❌ 환경변수 LAW_OC_ID가 설정되지 않았습니다.")
 
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "application/xml"
+    }
+
     combined = ""
     for law_id in law_ids:
         params = {
@@ -682,13 +687,18 @@ def fetch_combined_laws(law_ids: list[str], output: str = "XML", lang: str = "ko
             "ID": law_id
         }
         try:
-            r = requests.get("https://www.law.go.kr/DRF/lawService.do", params=params, timeout=30)
+            print(f"🔍 요청: {params}")
+            r = requests.get("https://www.law.go.kr/DRF/lawService.do", params=params, headers=headers, timeout=30)
+            print(f"🌐 상태 코드: {r.status_code}")
             if r.status_code == 200:
                 combined += f"\n\n[{law_id}]\n" + r.text
-        except:
+            else:
+                print(f"⚠️ 응답 실패: {r.status_code} → {r.text[:200]}")
+        except Exception as e:
+            print(f"❌ 예외 발생: {e}")
             continue
 
-    if combined:
+    if combined.strip():
         return combined
     else:
         return (
@@ -885,8 +895,9 @@ def get_true_refs(question: str, lang="ko") -> list[str]:
 async def ask(query: Query, request: Request):
     translated_question = query.question
     
-    # model_used = query.model or GPT_MODEL_MAIN
-    model_used = query.model or GPT_MODEL_LIGHT
+    model_used = query.model or GPT_MODEL_MAIN
+    print(f"{model_used} is selected.")
+    # model_used = query.model or GPT_MODEL_LIGHT
     if query.lang == "en":
         try:
             completion = gpt_call(
@@ -1035,6 +1046,25 @@ def plot_usage_distribution_save(df, path="static/chart_usage.png"):
     try:
         if "purpose" in df.columns:
             purpose_counts = df["purpose"].value_counts()
+
+            purpose_map_en = {
+            "요약 추출": "Extract Summary",
+            "조문 추론": "Infer Refs",
+            "예시 추출": "Extract Examples",
+            "조문 요약": "Summarize Tags",
+            "ask": "Ask",
+            "get_true_refs": "Get True Refs",
+            "safe_gpt_call": "Safe GPT Call",
+            "번역": "Translation",
+            "조문 분리": "Split Tags",
+            "전체 응답": "Full Answer",
+            "번역 캐시": 'Translation Cache',
+            "신뢰도 평가": "Self Rate"
+            }
+
+            df["purpose_en"] = df["purpose"].map(purpose_map_en).fillna(df["purpose"])
+            purpose_counts = df["purpose_en"].value_counts()
+
             if purpose_counts.sum() > 0:
                 fig, ax = plt.subplots(figsize=(6, 5))
                 bars = purpose_counts.plot(kind="bar", ax=ax, color=plt.cm.Pastel1.colors)
@@ -1049,10 +1079,9 @@ def plot_usage_distribution_save(df, path="static/chart_usage.png"):
                 plt.savefig(path, bbox_inches='tight')
                 print(f"✅ 저장 완료: {path}")
                 plt.close()
+                
     except Exception as e:
         print(f"❌ 목적 차트 실패: {e}")
-
-
 
 # ⏱ 3. 평균 응답 시간
 def plot_avg_response_time_save(df, path="static/chart_time.png"):
@@ -1077,7 +1106,7 @@ def plot_avg_response_time_save(df, path="static/chart_time.png"):
 
 def gpt_cost_report_sql(
     db_path="logs/gpt_calls.db",
-    save_path="static/report.png",
+    # save_path="static/report.png",
     csv_path="logs/report_filtered.csv",
     start_date=None,
     model_filter=None
@@ -1154,11 +1183,12 @@ async def get_logs(limit: int = 20):
         cur = conn.cursor()
 
         cur.execute("""
-            SELECT id, timestamp, question, answer, references, confidence, f1
+            SELECT id, timestamp, question,model, answer, "references", confidence, f1
             FROM question_logs
             ORDER BY timestamp DESC
             LIMIT ?
         """, (limit,))
+
 
         rows = cur.fetchall()
         columns = [desc[0] for desc in cur.description]
@@ -1168,6 +1198,7 @@ async def get_logs(limit: int = 20):
         return JSONResponse(content={"logs": result})
 
     except Exception as e:
+        print("❌ /logs endpoint error:", e)
         return JSONResponse(
             content={"error": str(e)},
             status_code=500
@@ -1213,7 +1244,7 @@ def download_filtered_csv(
 
     df = df.head(limit)
 
-    csv = df.to_csv(index=False, encoding="utf-8-sig")
+    csv = df.to_csv(csv_path, index=False, encoding="utf-8-sig")
     return Response(content=csv, media_type="text/csv", headers={
         "Content-Disposition": "attachment; filename=filtered_logs.csv"
     })
