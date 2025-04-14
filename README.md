@@ -1,80 +1,107 @@
-# 🇰🇷 VAT GPT Chatbot
+# 💼 KR VAT GPT Chatbot
 
-An interactive chatbot built with **FastAPI** and **OpenAI's GPT models**, designed to answer questions based on **Korean VAT law** and **legal precedents**.  
-It supports **Korean and English**, includes **law parsing, article tagging, confidence scoring**, and **visual GPT usage logs**.
+AI-powered chatbot for analyzing Korean VAT law, backed by GPT-4 and GPT-3.5 APIs.
+
+Provides accurate, legally grounded responses with citations to relevant statutes and precedents.
+
+---
+
+## 🚀 Features
+
+- ⚖️ Korean VAT law QA chatbot
+- 🧠 GPT-4 powered backend (via OpenAI API)
+- 📊 Generates visual VAT usage reports
+- 🌐 Tailwind CSS frontend
+- ☁️ Deploy to Replit or Netlify
+
+---
+
+## 🛠️ Tech Stack
+
+- **Python 3.10+**
+- **FastAPI** – REST API framework
+- **OpenAI SDK** – GPT-4 / GPT-3.5 calls
+- **Tailwind CSS** – frontend styling
+- **JavaScript** – interactivity (charts, input)
+- **Pandas, Matplotlib** – report generation
+
+---
+
+## 📦 Local Setup
+
+1. Clone the repo:
+   ```bash
+   git clone https://github.com/your-org/kr-vat-chatbot.git
+   cd kr-vat-chatbot
+   ```
+
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. Create a `.env` file:
+   ```env
+   OPENAI_API_KEY=your_key
+   LAW_OC_ID=your_key
+   ```
+
+4. Run the server:
+   ```bash
+   python3 main.py
+   ```
+
+5. Visit in browser:
+   ```
+   http://localhost:8000
+   ```
 
 ---
 
 ## 📁 Project Structure
 
 ```
-vat-gpt-chatbot/
-├── main.py                   # FastAPI backend with OpenAI logic and endpoints
-├── static/
-│   ├── app.js               # Client-side chatbot logic
-│   ├── logs.js              # Logs UI script
-│   ├── report.png           # Auto-generated usage report chart
-│   ├── chart_cost.png       # Model cost chart (generated)
-│   ├── chart_time.png       # Response time chart (generated)
-│   ├── chart_usage.png      # Feature usage chart (generated)
-├── logs/
-│   ├── gpt_calls.db         # SQLite DB for GPT usage logs
-│   ├── gpt_calls.csv        # CSV backup of logs
-│   └── report_filtered.csv  # Optional filtered export
-├── index.html               # Main chatbot UI
-├── logs.html                # Logs dashboard UI
-├── .env                     # Environment config (OpenAI & Law API keys)
-├── .gitignore
+├── main.py                  # FastAPI backend
 ├── requirements.txt
+├── static/
+│   ├── index.html           # UI page
+│   ├── app.js, logs.js      # JS logic
+│   ├── *.css                # Tailwind styles
+│   ├── *.png                # Generated visuals
+│   └── tailwind.config.js
+├── .env (not committed)
+├── .gitignore
 └── README.md
 ```
 
 ---
 
-## 🚀 Features
+## 🚀 Deploy
 
-- 🔍 Smart legal reference extraction and summarization
-- 📎 GPT-powered tagging and article matching
-- 📊 Auto-generated usage reports (cost, duration, frequency)
-- 🌐 Full multilingual interface (KR/EN toggle)
-- 💾 Logs stored in SQLite and exportable as CSV
-- 🧠 Confidence scoring and F1 evaluation of GPT answers
+### ▶️ Replit
+Click below to run the backend instantly:
+[![Run on Replit](https://replit.com/badge/github/openai/openai-python)](https://replit.com/new)
 
 ---
 
-## 🛠 Setup
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/your-username/vat-gpt-chatbot.git
-cd vat-gpt-chatbot
-```
-
-### 2. Install Python Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 3. Create `.env` File
-
-```env
-OPENAI_API_KEY=your_openai_api_key
-LAW_OC_ID=your_law_api_key  # Korean Government Law API
-```
-
-### 4. Run the Server
-
-```bash
-uvicorn main:app --reload
-```
-
-Then open: [http://localhost:8000](http://localhost:8000)
+### 🌍 Netlify (Frontend)
+1. Visit [Netlify Drop](https://app.netlify.com/drop)
+2. Upload `static/index.html`, `app.js`, `*.css`
+3. Set API backend CORS (if on Replit)
 
 ---
 
-## 📄 License
+## 🖼️ Screenshots
 
-MIT License © 2025
+![chart_cost](static/chart_cost.png)
+![chart_usage](static/chart_usage.png)
+![chart_time](static/chart_time.png)
+
+---
+
+## 👤 Author & License
+
+Made by QUIereN DUraznos with 🍑 Doldori
+
+Licensed under MIT
 
