@@ -1,4 +1,4 @@
-# 💼 KR VAT GPT Chatbot
+# 💼 KR VAT GPT Chatbot (Deployed @ https://kr-vat-chatbot-charkinglot.replit.app/)
 
 AI-powered chatbot for analyzing Korean VAT law, backed by GPT-4 and GPT-3.5 APIs.
 
