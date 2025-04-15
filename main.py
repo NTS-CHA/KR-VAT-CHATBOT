@@ -1,3 +1,5 @@
+# Deployed at https://kr-vat-chatbot-charkinglot.replit.app/
+
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
