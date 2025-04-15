@@ -78,16 +78,7 @@ Provides accurate, legally grounded responses with citations to relevant statute
 
 ## 🚀 Deploy
 
-### ▶️ Replit
-Click below to run the backend instantly:
-[![Run on Replit](https://replit.com/badge/github/openai/openai-python)](https://replit.com/new)
-
----
-
-### 🌍 Netlify (Frontend)
-1. Visit [Netlify Drop](https://app.netlify.com/drop)
-2. Upload `static/index.html`, `app.js`, `*.css`
-3. Set API backend CORS (if on Replit)
+https://kr-vat-chatbot-charkinglot.replit.app/
 
 ---
 
